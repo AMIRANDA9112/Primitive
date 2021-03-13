@@ -7,7 +7,7 @@ from kivy.clock import Clock
 import numpy as np
 from kivy.config import Config
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.behaviors import ButtonBehavior
+
 
 Config.set('graphics', 'width', 500)
 Config.set('graphics', 'height', 550)
@@ -58,6 +58,8 @@ class MyGrid(GridLayout):
         self.col_default_width = 10
         self.row_default_height = 10
 
+        self.pause = True
+
         Clock.schedule_once(self.init_page)
 
     def init_page(self, dt):
@@ -81,7 +83,7 @@ class MyGrid(GridLayout):
                 cel += 1
 
         Clock.schedule_once(self.set_attributes)
-        Clock.schedule_interval(self.init_game, 1)
+        Clock.schedule_interval(self.init_game, 0.5)
 
     def init_game(self, dt):
 
@@ -89,10 +91,12 @@ class MyGrid(GridLayout):
 
         celg = 0
 
-        for ym in range(YSIZE):
-            for xm in range(XSIZE):
+        self.new_game_state = np.copy(self.game_state)
 
-                if not self.game_state[xm, ym]:
+        for y in range(YSIZE):
+            for x in range(XSIZE):
+
+                if not self.game_state[x, y]:
                     self.children[celg].death_color()
                     self.canvas.add(self.children[celg].ig)
                 else:
@@ -101,64 +105,29 @@ class MyGrid(GridLayout):
 
                     self.canvas.add(self.children[celg].ig)
 
+                if not self.pause:
+
+                    n_neigh = (
+                            self.game_state[(x - 1) % XSIZE, (y - 1) % YSIZE]
+                            + self.game_state[x % XSIZE, (y - 1) % YSIZE]
+                            + self.game_state[(x + 1) % XSIZE, (y - 1) % YSIZE]
+                            + self.game_state[(x - 1) % XSIZE, y % YSIZE]
+                            + self.game_state[(x + 1) % XSIZE, y % YSIZE]
+                            + self.game_state[(x - 1) % XSIZE, (y + 1) % YSIZE]
+                            + self.game_state[x % XSIZE, (y + 1) % YSIZE]
+                            + self.game_state[(x + 1) % XSIZE, (y + 1) % YSIZE]
+
+                    )
+
+                    if self.game_state[x, y] == 0 and n_neigh == 3:
+                        self.new_game_state[x, y] = 1
+
+                    elif self.game_state[x, y] == 1 and (n_neigh < 2 or n_neigh > 3):
+                        self.new_game_state[x, y] = 0
+
                 celg += 1
 
-    def init_grid(self, dt):
-
-        self.new_game_state = np.copy(self.game_state)
-
-        self.canvas.clear()
-
-        cell = 0
-
-        for y in range(YSIZE):
-            for x in range(XSIZE):
-
-                if not self.game_state[x, y]:
-
-                    self.children[cell].death_color()
-
-                    self.canvas.add(self.children[cell].ig)
-
-                else:
-
-                    self.children[cell].live_color()
-
-                    self.canvas.add(self.children[cell].ig)
-
-
-                """
-
-                n_neigh = (
-                        self.game_state[(x - 1) % XSIZE, (y - 1) % YSIZE]
-                        + self.game_state[x % XSIZE, (y - 1) % YSIZE]
-                        + self.game_state[(x + 1) % XSIZE, (y - 1) % YSIZE]
-                        + self.game_state[(x - 1) % XSIZE, y % YSIZE]
-                        + self.game_state[(x + 1) % XSIZE, y % YSIZE]
-                        + self.game_state[(x - 1) % XSIZE, (y + 1) % YSIZE]
-                        + self.game_state[x % XSIZE, (y + 1) % YSIZE]
-                        + self.game_state[(x + 1) % XSIZE, (y + 1) % YSIZE]
-
-                )
-                
-                """
-
-                """
-
-                if self.game_state[x, y] == 0 and n_neigh == 3:
-                    self.new_game_state[x, y] = 1
-
-                elif self.game_state[x, y] == 1 and (n_neigh < 2 or n_neigh > 3):
-                    self.new_game_state[x, y] = 0
-            
-                """
-
-                cell += 1
-
         self.game_state = np.copy(self.new_game_state)
-
-
-        print("cicle")
 
     def set_attributes(self, dt):
         for i in self.children:
@@ -170,10 +139,11 @@ class MyGrid(GridLayout):
     def on_touch_down(self, touch):
         posx, posy = touch.pos
 
+        if posy > 500:
+            return
+
         posx, posy = (49 - int(np.floor(posx / dimCW))), int(np.floor(posy / dimCH))
         self.game_state[posx, posy] = not self.new_game_state[posx, posy]
-        
-
 
         print(posx, posy)
 
@@ -217,19 +187,16 @@ class Primitive(MainBox):
         print("game init")
 
     def start_game(self, event):
-        Clock.schedule_interval(self.grid_main.init_grid, 1)
+        self.grid_main.pause = False
 
     def stop_game(self, event):
-        Clock.unschedule(self.grid_main.init_grid)
-        Clock.schedule_once(self.grid_main.init_grid)
+        self.grid_main.pause = True
 
     def clear_game(self, event):
         self.grid_main.game_state = np.zeros((XSIZE, YSIZE))
         self.grid_main.new_game_state = np.zeros((XSIZE, YSIZE))
 
-        Clock.unschedule(self.grid_main.init_game)
-        self.grid_main.clear_widgets()
-        Clock.schedule_once(self.grid_main.init_page)
+        self.grid_main.pause = True
         print("m")
 
 
