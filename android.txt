@@ -1,0 +1,3 @@
+title=Primitive
+author=Andres Miranda
+orientation=portrait
